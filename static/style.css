@@ -9,15 +9,17 @@
 }
 
 .left {
-    width: 50%;
+    width: 30%;
     height: 80vh;
-    background-color: #f0f0f0;
 }
 
 .right {
-    width: 50%;
+    width: 30%;
     height: 80vh;
-    background-color: #d0d0d0;
+}
+
+input[type="file"] {
+    display: none;
 }
 
 /* CSS cho upload và preview ảnh */
@@ -87,4 +89,46 @@
         width: 100%;
         height: auto;
     }
+}
+
+/* Statistics Display Styles */
+#statisticsDisplay {
+    border: 2px solid #28a745;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+#statisticsDisplay .card {
+    border: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease;
+}
+
+#statisticsDisplay .card:hover {
+    transform: translateY(-2px);
+}
+
+#statisticsDisplay .card-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+#statisticsDisplay .card-text {
+    font-size: 0.8rem;
+}
+
+#statisticsDisplay .card-text strong {
+    color: #495057;
+}
+
+/* Animation for statistics update */
+.statistics-update {
+    animation: pulse 0.6s ease-in-out;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
 }
