@@ -21,7 +21,7 @@ def run_realtime_detection(confidence=0.6):
         model = YOLO("yolov8n.pt")  # Model nhẹ cho real-time
         
         # Mở camera
-        cap = cv2.VideoCapture(1)
+        cap = cv2.VideoCapture(0)
         
         if not cap.isOpened():
             print("Error: Cannot open camera!")
@@ -252,4 +252,5 @@ def main():
         sys.exit(1)
 
 if __name__ == "__main__":
+
     main()
