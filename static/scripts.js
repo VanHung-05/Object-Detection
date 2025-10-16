@@ -70,6 +70,13 @@ function applyModel() {
     const optionSelect = document.getElementById('optionSelect');
     const selectedOption = optionSelect ? optionSelect.value : 'imageDetection';
     formData.append('option', selectedOption);
+    
+    // Lấy confidence value nếu đang ở chế độ realtime
+    if (selectedOption === 'realTimeDetection') {
+        const confidenceSlider = document.getElementById('confidenceSlider');
+        const confidence = confidenceSlider ? confidenceSlider.value : 0.6;
+        formData.append('confidence', confidence);
+    }
     // Gọi API backend
     fetch('/api/', {
         method: 'POST',
@@ -149,12 +156,24 @@ function showRealtimeOptions() {
         optionDiv.appendChild(realtimeUI);
     }
     realtimeUI.style.display = 'block';
+    
+    // Show confidence slider for realtime detection
+    const confidenceContainer = document.getElementById('confidenceContainer');
+    if (confidenceContainer) {
+        confidenceContainer.style.display = 'block';
+    }
 }
 
 function hideRealtimeOptions() {
     const realtimeUI = document.getElementById('realtimeOptions');
     if (realtimeUI) {
         realtimeUI.style.display = 'none';
+    }
+    
+    // Hide confidence slider when not in realtime mode
+    const confidenceContainer = document.getElementById('confidenceContainer');
+    if (confidenceContainer) {
+        confidenceContainer.style.display = 'none';
     }
 }
 
@@ -255,5 +274,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const previewImage = document.getElementById('previewImage');
     if (previewImage) {
         previewImage.style.display = 'none';
+    }
+    
+    // Ensure confidence slider is hidden by default (only shown for realtime)
+    const confidenceContainer = document.getElementById('confidenceContainer');
+    if (confidenceContainer) {
+        confidenceContainer.style.display = 'none';
     }
 });
