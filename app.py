@@ -7,6 +7,7 @@ import base64
 import os
 import imageDetection
 import time
+import json
 import subprocess
 import sys
 import threading
@@ -149,6 +150,31 @@ def api_launch_realtime():
             'message': f"Failed to launch real-time detection: {str(e)}"
         }), 500
 
+
+@app.route('/api/realtime/status', methods=['GET'])
+def api_realtime_status():
+    """Return last known real-time detection status written by run_realtime.py"""
+    try:
+        status_path = os.path.join(os.getcwd(), 'realtime_status.json')
+        if not os.path.exists(status_path):
+            return jsonify({
+                'status': 'success',
+                'running': False,
+                'message': 'No realtime status yet'
+            })
+
+        with open(status_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        return jsonify({
+            'status': 'success',
+            **data
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to read status: {str(e)}'
+        }), 500
 
 @app.route('/health')
 def health_check():

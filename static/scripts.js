@@ -198,10 +198,19 @@ function launchRealtimeApp() {
             confidence: parseFloat(confidence)
         })
     })
-    .then(response => response.json())
+    .then(async (response) => {
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+            const text = await response.text();
+            throw new Error(`Non-JSON response (${response.status}): ${text.slice(0, 120)}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.status === 'success') {
             alert(`✅ ${data.message}\n\n${data.instruction}`);
+            // Bắt đầu polling trạng thái real-time
+            startRealtimePolling();
         } else {
             throw new Error(data.message);
         }
@@ -281,4 +290,144 @@ document.addEventListener('DOMContentLoaded', function() {
     if (confidenceContainer) {
         confidenceContainer.style.display = 'none';
     }
+
+    // Hiển thị panel realtime nếu có dữ liệu sẵn
+    initRealtimePanel();
 });
+
+// ===== Real-time status polling =====
+let realtimePollTimer = null;
+let rtBarChart = null;
+
+function initRealtimePanel() {
+    const panel = document.getElementById('realtimeStatus');
+    if (panel) {
+        panel.style.display = 'none';
+    }
+}
+
+function startRealtimePolling() {
+    const panel = document.getElementById('realtimeStatus');
+    if (!panel) return;
+    panel.style.display = 'block';
+
+    // Clear existing timer
+    if (realtimePollTimer) clearInterval(realtimePollTimer);
+
+    const fetchStatus = () => {
+        fetch('/api/realtime/status')
+            .then(res => res.json())
+            .then(data => {
+                updateRealtimeUI(data);
+                if (data && data.running === false) {
+                    clearInterval(realtimePollTimer);
+                    realtimePollTimer = null;
+                }
+            })
+            .catch(err => {
+                console.warn('Realtime status error:', err);
+            });
+    };
+
+    fetchStatus();
+    realtimePollTimer = setInterval(fetchStatus, 1000);
+}
+
+function updateRealtimeUI(data) {
+    if (!data) return;
+    const runningEl = document.getElementById('rtRunning');
+    const frameEl = document.getElementById('rtFrame');
+    const objectsEl = document.getElementById('rtObjects');
+    const updatedEl = document.getElementById('rtUpdated');
+    const topClassesEl = document.getElementById('rtTopClasses');
+    const reportEl = document.getElementById('rtReport');
+
+    if (runningEl) runningEl.textContent = data.running ? 'running' : 'stopped';
+    if (frameEl) frameEl.textContent = data.frame ?? 0;
+    if (objectsEl) objectsEl.textContent = data.objects_current_sum ?? 0;
+    if (updatedEl) updatedEl.textContent = new Date((data.timestamp || Date.now()) * 1000).toLocaleTimeString();
+
+    if (topClassesEl) {
+        const totals = data.objects_total || {};
+        const top = Object.entries(totals)
+            .sort((a,b) => b[1]-a[1])
+            .slice(0,5)
+            .map(([name, count]) => `${name}: ${count}`)
+            .join(' | ');
+        topClassesEl.textContent = top || '';
+    }
+
+    // Update bar chart for accumulated totals (not per-frame)
+    const totalsMap = data.objects_total || {};
+    const sortedTotals = Object.entries(totalsMap).sort((a,b)=>b[1]-a[1]);
+    const labels = sortedTotals.map(([k]) => k);
+    const values = sortedTotals.map(([,v]) => v);
+    const ctx = document.getElementById('rtBarChart');
+    if (!ctx) return;
+
+    if (!rtBarChart) {
+        rtBarChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Objects detected (accumulated)',
+                    data: values,
+                    backgroundColor: 'rgba(54, 162, 235, 0.6)'
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 } }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+    } else {
+        rtBarChart.data.labels = labels;
+        rtBarChart.data.datasets[0].data = values;
+        rtBarChart.data.datasets[0].label = 'Objects detected (accumulated)';
+        rtBarChart.update('none');
+    }
+
+    // Build terminal-like report text
+    if (reportEl) {
+        const frame = data.frame ?? 0;
+        const conf = data.confidence ?? 0;
+        const totals = data.objects_total || {};
+        const grand = Object.values(totals).reduce((a,b)=>a+b,0);
+        const unique = Object.keys(totals).length;
+        const avgPerFrame = frame ? (grand / frame).toFixed(1) : '0.0';
+
+        let lines = [];
+        lines.push("====================================================================");
+        lines.push("📋 OBJECT DETECTION REPORT");
+        lines.push("====================================================================\n");
+        lines.push(`🧮 Total frames processed: ${frame}`);
+        lines.push(`🎯 Current confidence threshold: ${Number(conf).toFixed(1)}\n`);
+        lines.push("🔷 Total objects detected (accumulated):");
+        const sortedTotals = Object.entries(totals).sort((a,b)=>b[1]-a[1]);
+        if (sortedTotals.length === 0) {
+            lines.push("(none)");
+        } else {
+            sortedTotals.forEach(([name, count]) => {
+                const pct = grand ? ((count / grand) * 100).toFixed(1) : '0.0';
+                lines.push(`${name}: ${count} (${pct}%)`);
+            });
+        }
+        lines.push("\n📊 Summary:");
+        lines.push(`Grand total: ${grand} detections`);
+        lines.push(`Unique classes: ${unique}`);
+        lines.push(`Average per frame: ${avgPerFrame}\n`);
+        lines.push("🎯 Current frame objects:");
+        if (labels.length === 0) {
+            lines.push("(none)");
+        } else {
+            labels.forEach((name, i) => {
+                lines.push(`${name}: ${values[i]}`);
+            });
+        }
+        reportEl.textContent = lines.join('\n');
+    }
+}
